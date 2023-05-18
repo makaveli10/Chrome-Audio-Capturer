@@ -29,7 +29,7 @@ const CONFIGS = {
     timeLimit: 1200,           // recording time limit (sec)
     encodeAfterRecord: true, // process encoding after recording
     progressInterval: 1000,   // encoding progress report interval (millisec)
-    bufferSize: undefined,    // buffer size (use browser default)
+    bufferSize: 4096,    // buffer size (use browser default)
 
     // encoding-specific options
     wav: {
@@ -171,7 +171,7 @@ const audioCapture = (timeLimit, muteTab, format, quality, limitRemoved) => {
     let audioURL = null; //resulting object when encoding is completed
     chrome.tabs.query({active:true, currentWindow: true}, (tabs) => startTabId = tabs[0].id) //saves start tab
     const liveStream = stream;
-    const audioCtx = new AudioContext();
+    const audioCtx = new AudioContext({sampleRate: 16000});
     const source = audioCtx.createMediaStreamSource(stream);
     let mediaRecorder = new Recorder(source); //initiates the recorder based on the current stream
     mediaRecorder.setEncoding(format); //sets encoding based on options
