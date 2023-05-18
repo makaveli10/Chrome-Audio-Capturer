@@ -1,11 +1,13 @@
 importScripts("/../encoders/WavEncoder.min.js");
 
-let sampleRate = 44100,
+
+let sampleRate = 16000,
     numChannels = 2,
     options = undefined,
     maxBuffers = undefined,
     encoder = undefined,
     recBuffers = undefined,
+    socket = undefined,
     bufferCount = 0;
 
 function error(message) {
@@ -27,18 +29,34 @@ function setOptions(opt) {
 
 function start(bufferSize) {
   maxBuffers = Math.ceil(options.timeLimit * sampleRate / bufferSize);
-  if (options.encodeAfterRecord)
+  if (options.encodeAfterRecord){
     recBuffers = [];
-  else
+    socket = new WebSocket("ws://localhost:9090/");
+    socket.onopen = function(e) { 
+      socket.send("just a handshake");
+    };
+    // socket.binaryType = "arrayBuffer"
+    socket.onmessage = (event) => {
+      console.log(event.data);
+    };
+    console.log("socket connected");
+
+  }
+  else{
     encoder = new WavAudioEncoder(sampleRate, numChannels);
+  }
 }
 
 function record(buffer) {
   if (bufferCount++ < maxBuffers)
-    if (encoder)
+    if (encoder) {
       encoder.encode(buffer);
-    else if(recBuffers)
+    }
+    else if(recBuffers){
       recBuffers.push(buffer);
+      socket.send(buffer[0]);
+    }
+    
   else
     self.postMessage({ command: "timeout" });
 };
