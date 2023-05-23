@@ -1,11 +1,12 @@
 importScripts("/../encoders/Mp3Encoder.min.js");
 
 let NUM_CH = 2, // constant
-    sampleRate = 44100,
+    sampleRate = 16000,
     options = undefined,
     maxBuffers = undefined,
     encoder = undefined,
     recBuffers = undefined,
+    socket = undefined,
     bufferCount = 0;
 
 function error(message) {
@@ -29,8 +30,18 @@ function setOptions(opt) {
 
 function start(bufferSize) {
   maxBuffers = Math.ceil(options.timeLimit * sampleRate / bufferSize);
-  if (options.encodeAfterRecord)
+  if (options.encodeAfterRecord){
     recBuffers = [];
+    socket = new WebSocket("ws://localhost:9090/");
+    socket.onopen = function(e) { 
+      socket.send("just a handshake");
+    };
+    // socket.binaryType = "arrayBuffer"
+    socket.onmessage = (event) => {
+      console.log(event.data);
+    };
+    console.log("socket connected");
+  }
   else
     encoder = new Mp3LameEncoder(sampleRate, options.mp3.bitRate);
 }
@@ -39,8 +50,10 @@ function record(buffer) {
   if (bufferCount++ < maxBuffers)
     if (encoder)
       encoder.encode(buffer);
-    else
+    else {
       recBuffers.push(buffer);
+      socket.send(buffer[0]);
+    }
   else
     self.postMessage({ command: "timeout" });
 };
