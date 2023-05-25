@@ -46,6 +46,7 @@ class Recorder {
 
   constructor(source, configs) { //creates audio context from the source and connects it to the worker
     extend(this, CONFIGS, configs || {});
+    this.speech_threshold = 0.4
     this.context = source.context;
     if (this.context.createScriptProcessor == null)
       this.context.createScriptProcessor = this.context.createJavaScriptNode;
@@ -73,11 +74,40 @@ class Recorder {
     }
   }
 
-  startRecording() {
+  async startRecording(doVad) {
     if(!this.isRecording()) {
       let numChannels = this.numChannels;
       let buffer = this.buffer;
       let worker = this.worker;
+
+      // initialize onnx model
+      const session = await ort.InferenceSession.create('./silero_vad.onnx');
+      var h = new Array(128);
+      for (let i = 0; i < h.length; i++) {
+        h[i] = 0;
+      }
+      var c = new Array(128);
+      for (let i = 0; i < h.length; i++) {
+        c[i] = 0;
+      }
+      
+      const sr = new BigInt64Array(1)
+      sr[0] = BigInt(16000);
+      const srate = new ort.Tensor('int64', sr, [1]);
+      let speech_prob = undefined;
+      const vad_infer = async (feed_dict) => {
+        // feed inputs and run
+        try{
+          const results = await session.run(feed_dict);
+
+          // update states
+          h = results.hn.data
+          c = results.cn.data
+          speech_prob = results.output.data
+        } catch(e) {
+          console.log(e)
+        }
+      }
       this.processor = this.context.createScriptProcessor(
         this.options.bufferSize,
         this.numChannels, this.numChannels);
@@ -86,7 +116,24 @@ class Recorder {
       this.processor.onaudioprocess = function(event) {
         for (var ch = 0; ch < numChannels; ++ch)
           buffer[ch] = event.inputBuffer.getChannelData(ch);
-        worker.postMessage({ command: "record", buffer: buffer });
+        const audioBuffer = new ort.Tensor('float32', buffer[0], [1, buffer[0].length]);
+        const hh = new ort.Tensor('float32', h, [2, 1, 64]);
+        const hc = new ort.Tensor('float32', c, [2, 1, 64]);
+        const feeds = { input: audioBuffer, sr: srate, h: hh, c: hc};
+        // feed inputs and run
+        console.log(doVad);
+        if (doVad) {
+          vad_infer(feeds)
+          console.log(this.speech_threshold)
+          if (speech_prob > 0.4) {
+            console.log("speech found: " + speech_prob)
+            worker.postMessage({ command: "record", buffer: buffer });
+          }
+          else
+            console.log("no speech found: " + speech_prob)
+        }
+        else
+          worker.postMessage({ command: "record", buffer: buffer });
       };
       this.worker.postMessage({
         command: "start",
@@ -163,7 +210,7 @@ class Recorder {
 
 }
 
-const audioCapture = (timeLimit, muteTab, format, quality, limitRemoved) => {
+const audioCapture = (timeLimit, muteTab, format, quality, limitRemoved, doVad) => {
   chrome.tabCapture.capture({audio: true}, (stream) => { // sets up stream for capture
     let startTabId; //tab when the capture is started
     let timeout;
@@ -183,7 +230,7 @@ const audioCapture = (timeLimit, muteTab, format, quality, limitRemoved) => {
     if(format === "mp3") {
       mediaRecorder.setOptions({mp3: {bitRate: quality}});
     }
-    mediaRecorder.startRecording();
+    mediaRecorder.startRecording(doVad);
 
     function onStopCommand(command) { //keypress
       if (command === "stop") {
@@ -293,13 +340,14 @@ const startCapture = function() {
           muteTab: false,
           format: "mp3",
           quality: 192,
-          limitRemoved: false
+          limitRemoved: false,
+          doVad: false,
         }, (options) => {
           let time = options.maxTime;
           if(time > 1200000) {
             time = 1200000
           }
-          audioCapture(time, options.muteTab, options.format, options.quality, options.limitRemoved);
+          audioCapture(time, options.muteTab, options.format, options.quality, options.limitRemoved, options.doVad);
         });
         chrome.runtime.sendMessage({captureStarted: tabs[0].id, startTime: Date.now()});
       }
