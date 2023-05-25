@@ -2,8 +2,6 @@
 
 Chrome Audio Capture is a Chrome extension that allows users to capture any audio playing on the current tab. Multiple tabs can be captured simultaneously. Completed captures will be downloaded to the chrome downloads folder and will be saved as .wav or .mp3 files. Users will have the option to mute tabs that are currently being captured.
 
-Chrome Audio Capture is available in the [Chrome Store](https://chrome.google.com/webstore/detail/chrome-audio-capture/kfokdmfpdnokpmpbjhjbcabgligoelgp)
-
 Hotkeys for Windows:
  - Ctrl + Shift + S: Start capture on current tab
  - Ctrl + Shift + X: Stop capture on current tab
@@ -24,6 +22,25 @@ Interface during capture
 
 [capturing]: ./docs/capturing.png
 
+
+## Loading the Extension
+- Open the Google Chrome browser.
+- Type chrome://extensions in the address bar and press Enter.
+- Enable the Developer mode toggle switch located in the top right corner.
+- Clone this repository
+- Click the Load unpacked button.
+- Browse to the location where you cloned the repository files and select the root folder.
+- The extension should now be loaded and visible on the extensions page.
+
+
+## Real time transcription with OpenAI-whisper
+This Chrome extension allows you to send audio from your browser to a server for transcribing the audio in real time. It can also incorporate voice activity detection on the client side to detect when speech is present, and it continuously receives transcriptions of the spoken content from the server. You can select from the options menu if you want to run the speech recognition.
+
+
+## Running the Whisper-live server
+For a detailed overview of how to run the server to leverage real time transcriptions with OpenAI-whisper, use [whisper-live](https://github.com/collabora/whisper-live) to setup your own server.
+
+
 ## Options
 
 ![options]
@@ -35,6 +52,9 @@ Several options are able to be changed in the extension:
 - 'Maximum capture time' changes the amount of time the extension will capture audio for before timing out, and has a limit to prevent exceeding Chrome's memory limit.
 - 'Output file format' allows users to choose whether the resulting file will be encoded into .wav or .mp3
 - 'MP3 Quality' is only applicable for .mp3 encodings, and will change the bitrate of the encode. (Low: 96 kbps, Medium: 192 kbps, High: 320 kbps)
+- 'Enable Automatic Speech Recognition' allows users to send audio to a server hosting a model that consumes the audio and sends the transcriptions corresponding to it.
+- 'Enable Voice Activity detection' allows users to run a voice activity detection model before sending audio to a server hosting the OpenAI-whisper model for transcriptions. It is only applicable if you enable Automatic Speech Recognition.
+
 
 ## Implementation Details
 
@@ -50,6 +70,13 @@ chrome.tabCapture.capture({audio: true}, (stream) => {
   const source = audioCtx.createMediaStreamSource(stream);
   let mediaRecorder = new Recorder(source);
 ```
+
+### Automatic Speech Recognition
+We use OpenAI-whisper model to process the audio continuously and send the transcription back to the client. We apply a few optimizations on top of OpenAI's implementation to improve performance and run it faster in a real-time manner. To this end, we used [faster-whisper](https://github.com/guillaumekln/faster-whisper) which is 4x faster than OpenAI's implementation.
+
+
+### Voice Activity Detection
+For VAD, we use [silero-vad](https://github.com/snakers4/silero-vad) which is both efficient and accurate for detecting voice activity. It takes around ```1ms``` to process a single audio chunk of ```30ms```. We use the ONNX model in the browser to only send the audio to the server when there is a voice activity.
 
 ### Tab Management
 To allow audio capture on multiple tabs simultaneously, I stored the `tabId` of each tab being captured into the `sessionStorage` object. When a `stopCapture` command is issued, the extension will check whether the current tab is the same as the tab that the capture was started on, and only stop the specific instance of the capture on the current tab.
@@ -83,6 +110,7 @@ chrome.storage.sync.get({
   }
 });
 ```
+
 
 ### License
 This extension uses LAME MP3 encoder, licensed LGPL.
