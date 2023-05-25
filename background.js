@@ -74,7 +74,7 @@ class Recorder {
     }
   }
 
-  async startRecording(doVad) {
+  async startRecording(asr, doVad) {
     if(!this.isRecording()) {
       let numChannels = this.numChannels;
       let buffer = this.buffer;
@@ -116,17 +116,17 @@ class Recorder {
       this.processor.onaudioprocess = function(event) {
         for (var ch = 0; ch < numChannels; ++ch)
           buffer[ch] = event.inputBuffer.getChannelData(ch);
+        
+        // voice activity detection inference
         const audioBuffer = new ort.Tensor('float32', buffer[0], [1, buffer[0].length]);
         const hh = new ort.Tensor('float32', h, [2, 1, 64]);
         const hc = new ort.Tensor('float32', c, [2, 1, 64]);
         const feeds = { input: audioBuffer, sr: srate, h: hh, c: hc};
+        
         // feed inputs and run
-        console.log(doVad);
         if (doVad) {
           vad_infer(feeds)
-          console.log(this.speech_threshold)
           if (speech_prob > 0.4) {
-            console.log("speech found: " + speech_prob)
             worker.postMessage({ command: "record", buffer: buffer });
           }
           else
@@ -137,7 +137,8 @@ class Recorder {
       };
       this.worker.postMessage({
         command: "start",
-        bufferSize: this.processor.bufferSize
+        bufferSize: this.processor.bufferSize,
+        asr: asr
       });
       this.startTime = Date.now();
     }
@@ -210,7 +211,7 @@ class Recorder {
 
 }
 
-const audioCapture = (timeLimit, muteTab, format, quality, limitRemoved, doVad) => {
+const audioCapture = (timeLimit, muteTab, format, quality, limitRemoved, asr, doVad) => {
   chrome.tabCapture.capture({audio: true}, (stream) => { // sets up stream for capture
     let startTabId; //tab when the capture is started
     let timeout;
@@ -230,7 +231,7 @@ const audioCapture = (timeLimit, muteTab, format, quality, limitRemoved, doVad) 
     if(format === "mp3") {
       mediaRecorder.setOptions({mp3: {bitRate: quality}});
     }
-    mediaRecorder.startRecording(doVad);
+    mediaRecorder.startRecording(asr, doVad);
 
     function onStopCommand(command) { //keypress
       if (command === "stop") {
@@ -341,13 +342,14 @@ const startCapture = function() {
           format: "mp3",
           quality: 192,
           limitRemoved: false,
-          doVad: false,
+          asr: false,
+          doVad: false
         }, (options) => {
           let time = options.maxTime;
           if(time > 1200000) {
             time = 1200000
           }
-          audioCapture(time, options.muteTab, options.format, options.quality, options.limitRemoved, options.doVad);
+          audioCapture(time, options.muteTab, options.format, options.quality, options.limitRemoved, options.asr, options.doVad);
         });
         chrome.runtime.sendMessage({captureStarted: tabs[0].id, startTime: Date.now()});
       }

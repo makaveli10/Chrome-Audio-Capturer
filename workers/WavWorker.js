@@ -8,6 +8,7 @@ let sampleRate = 16000,
     encoder = undefined,
     recBuffers = undefined,
     socket = undefined,
+    doASR = undefined,
     bufferCount = 0;
 
 function error(message) {
@@ -27,36 +28,36 @@ function setOptions(opt) {
     options = opt;
 }
 
-function start(bufferSize) {
+function start(bufferSize, asr) {
   maxBuffers = Math.ceil(options.timeLimit * sampleRate / bufferSize);
-  if (options.encodeAfterRecord){
-    recBuffers = [];
+  doASR = asr;
+  if (doASR) {
+    // TODO: get server address from user
     socket = new WebSocket("ws://localhost:9090/");
     socket.onopen = function(e) { 
-      socket.send("just a handshake");
+      socket.send("handshake");
     };
-    // socket.binaryType = "arrayBuffer"
     socket.onmessage = (event) => {
       console.log(event.data);
     };
-    console.log("socket connected");
-
   }
-  else{
+  if (options.encodeAfterRecord)
+    recBuffers = [];
+  else
     encoder = new WavAudioEncoder(sampleRate, numChannels);
-  }
 }
 
 function record(buffer) {
-  if (bufferCount++ < maxBuffers)
-    if (encoder) {
+  if (bufferCount++ < maxBuffers){
+    if (encoder) 
       encoder.encode(buffer);
-    }
-    else if(recBuffers){
+    else if(recBuffers)
       recBuffers.push(buffer);
-      socket.send(buffer[0]);
-    }
     
+    // send buffer to server if asr is enabled
+    if (doASR)
+      socket.send(buffer[0]);
+  }
   else
     self.postMessage({ command: "timeout" });
 };
@@ -90,16 +91,17 @@ function finish() {
 function cleanup() {
   encoder = recBuffers = undefined;
   bufferCount = 0;
+  socket.close();
 }
 
 self.onmessage = function(event) {
   var data = event.data;
   switch (data.command) {
-    case "init":    init(data);                 break;
-    case "options": setOptions(data.options);   break;
-    case "start":   start(data.bufferSize);     break;
-    case "record":  record(data.buffer);        break;
-    case "finish":  finish();                   break;
+    case "init":    init(data);                           break;
+    case "options": setOptions(data.options);             break;
+    case "start":   start(data.bufferSize, data.asr);     break;
+    case "record":  record(data.buffer);                  break;
+    case "finish":  finish();                             break;
     case "cancel":  cleanup();
   }
 };
