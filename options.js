@@ -9,8 +9,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const qualityLi = document.getElementById("qualityLi");
   const limitRemoved = document.getElementById("removeLimit");
   const doVad = document.getElementById("doVad");
-  const asr = document.getElementById("asr");
-  const vadLi = document.getElementById("vadLi");
   let currentFormat;
   //initial settings
   chrome.storage.sync.get({
@@ -27,7 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
     maxTime.disabled = options.limitRemoved;
     maxTime.value = options.maxTime/60000;
     currentFormat = options.format;
-    asr.checked = options.asr;
     doVad.checked = options.doVad;
     if (options.format === "mp3") {
       mp3Select.checked = true;
@@ -42,25 +39,10 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       quality.selectedIndex = 2;
     }
-
-    if (asr.checked === false) {
-      vadLi.style.display = "none";
-    }
   });
 
   mute.onchange = () => {
     status.innerHTML = "";
-  }
-
-  asr.onchange = () => {
-    status.innerHTML = "";
-    if (asr.checked === false){
-      doVad.checked= false;
-      vadLi.style.display = "none";
-
-    }
-    else
-      vadLi.style.display = "block";
   }
 
   doVad.onchange = () => {
@@ -111,8 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
       format: currentFormat,
       quality: quality.value,
       limitRemoved: limitRemoved.checked,
-      doVad: doVad.checked,
-      asr: asr.checked
+      doVad: doVad.checked
     });
     status.innerHTML = "Settings saved!"
   }
