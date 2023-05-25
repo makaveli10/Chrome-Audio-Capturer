@@ -111,8 +111,14 @@ chrome.storage.sync.get({
 });
 ```
 
+## Limitations
+This extension requires an internet connection to stream audio and receive transcriptions. The accuracy of the transcriptions may vary depending on the audio quality and the performance of the server-side transcription service. The extension may consume additional system resources while running, especially when streaming audio.
+
+## Disclaimer
+
 
 ### License
+This extension is provided as-is, without any warranty or guarantee of its performance or suitability for any particular purpose. The developers of this extension shall not be held responsible for any damages or losses incurred while using this extension.
 This extension uses LAME MP3 encoder, licensed LGPL.
 Everything else is under the MIT License.
 
