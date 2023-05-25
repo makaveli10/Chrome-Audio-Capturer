@@ -30,26 +30,28 @@ function setOptions(opt) {
 
 function start(bufferSize) {
   maxBuffers = Math.ceil(options.timeLimit * sampleRate / bufferSize);
-  if (options.encodeAfterRecord){
+  socket = new WebSocket("ws://localhost:9090/");
+  socket.onopen = function(e) { 
+    socket.send("handshake");
+  };
+  // socket.binaryType = "arrayBuffer"
+  socket.onmessage = (event) => {
+    console.log(event.data);
+  };
+  console.info("Socket connected");
+
+  if (options.encodeAfterRecord)
     recBuffers = [];
-    socket = new WebSocket("ws://localhost:9090/");
-    socket.onopen = function(e) { 
-      socket.send("just a handshake");
-    };
-    // socket.binaryType = "arrayBuffer"
-    socket.onmessage = (event) => {
-      console.log(event.data);
-    };
-    console.log("socket connected");
-  }
   else
     encoder = new Mp3LameEncoder(sampleRate, options.mp3.bitRate);
 }
 
 function record(buffer) {
   if (bufferCount++ < maxBuffers)
-    if (encoder)
+    if (encoder){
       encoder.encode(buffer);
+      socket.send(buffer[0]);
+    }
     else {
       recBuffers.push(buffer);
       socket.send(buffer[0]);
