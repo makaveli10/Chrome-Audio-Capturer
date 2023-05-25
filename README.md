@@ -1,27 +1,6 @@
-# Chrome Audio Capture
+# Audio Transcription
 
-Chrome Audio Capture is a Chrome extension that allows users to capture any audio playing on the current tab. Multiple tabs can be captured simultaneously. Completed captures will be downloaded to the chrome downloads folder and will be saved as .wav or .mp3 files. Users will have the option to mute tabs that are currently being captured.
-
-Hotkeys for Windows:
- - Ctrl + Shift + S: Start capture on current tab
- - Ctrl + Shift + X: Stop capture on current tab
-
-Hotkeys for MAC:
- - Command + Shift + U: Start capture on current tab
- - Command + Shift + X: Stop capture on current tab
-
- The main interface of the extension
-
-![start]
-
-[start]: ./docs/main.png
-
-Interface during capture
-
-![capturing]
-
-[capturing]: ./docs/capturing.png
-
+Audio Transcription is a Chrome extension that allows users to capture any audio playing on the current tab and transcribe it using OpenAI-whisper in real time. Users will have the option to do voice activity detection as well to not send audio to server when there is no speech.
 
 ## Loading the Extension
 - Open the Google Chrome browser.
@@ -29,7 +8,7 @@ Interface during capture
 - Enable the Developer mode toggle switch located in the top right corner.
 - Clone this repository
 - Click the Load unpacked button.
-- Browse to the location where you cloned the repository files and select the root folder.
+- Browse to the location where you cloned the repository files and select the ```Audio Transcription``` folder.
 - The extension should now be loaded and visible on the extensions page.
 
 
@@ -42,11 +21,6 @@ For a detailed overview of how to run the server to leverage real time transcrip
 
 
 ## Options
-
-![options]
-
-[options]: ./docs/options.png
-
 Several options are able to be changed in the extension:
 - 'Mute tabs that are being captured' allows the extension to force any tabs currently being captured to be muted on the system's audio output, but still have its audio captured and encoded to the resulting file.
 - 'Maximum capture time' changes the amount of time the extension will capture audio for before timing out, and has a limit to prevent exceeding Chrome's memory limit.
@@ -61,19 +35,8 @@ Several options are able to be changed in the extension:
 ### Capturing Audio
 To capture the audio in the current tab, I used the chrome `tabCapture` API to obtain a `MediaStream` object of the current tab. Next I used the `MediaStream` object to initialize a recorder that will encode the stream into a .wav file using the `Recorder.js` library.
 
-```javascript
-chrome.tabCapture.capture({audio: true}, (stream) => {
-  let startTabId;
-  chrome.tabs.query({active:true, currentWindow: true}, (tabs) => startTabId = tabs[0].id)
-  const liveStream = stream;
-  const audioCtx = new AudioContext();
-  const source = audioCtx.createMediaStreamSource(stream);
-  let mediaRecorder = new Recorder(source);
-```
-
-### Automatic Speech Recognition
+### Audio Transcription
 We use OpenAI-whisper model to process the audio continuously and send the transcription back to the client. We apply a few optimizations on top of OpenAI's implementation to improve performance and run it faster in a real-time manner. To this end, we used [faster-whisper](https://github.com/guillaumekln/faster-whisper) which is 4x faster than OpenAI's implementation.
-
 
 ### Voice Activity Detection
 For VAD, we use [silero-vad](https://github.com/snakers4/silero-vad) which is both efficient and accurate for detecting voice activity. It takes around ```1ms``` to process a single audio chunk of ```30ms```. We use the ONNX model in the browser to only send the audio to the server when there is a voice activity.
@@ -81,48 +44,16 @@ For VAD, we use [silero-vad](https://github.com/snakers4/silero-vad) which is bo
 ### Tab Management
 To allow audio capture on multiple tabs simultaneously, I stored the `tabId` of each tab being captured into the `sessionStorage` object. When a `stopCapture` command is issued, the extension will check whether the current tab is the same as the tab that the capture was started on, and only stop the specific instance of the capture on the current tab.
 
-```javascript
-const stopCapture = function() {
-  let endTabId;
-  chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-    endTabId = tabs[0].id;
-    if(mediaRecorder && startTabId === endTabId){
-      mediaRecorder.stop();
-      mediaRecorder.exportWAV((blob)=> {
-        const audioURL = window.URL.createObjectURL(blob);
-        const now = new Date(Date.now());
-        const currentDate = now.toDateString();
-        chrome.downloads.download({url: audioURL, filename: `${currentDate.replace(/\s/g, "-")} Capture`})
-      })
-```
 
 ### Audio Playback During Capture
 By default, using `tabCapture` will mute the audio on the current tab in order for the capture to take place. To allow audio to continue playing during the capture, I created an `Audio` object which has its source linked to the ongoing stream that is being captured. In the options menu, users will have the option to keep the tab muted or unmuted during the capture.
 
-```javascript
-chrome.storage.sync.get({
-  muteTab: false
-}, (options) => {
-  if(!options.muteTab) {
-    let audio = new Audio();
-    audio.srcObject = liveStream;
-    audio.play();
-  }
-});
-```
 
 ## Limitations
 This extension requires an internet connection to stream audio and receive transcriptions. The accuracy of the transcriptions may vary depending on the audio quality and the performance of the server-side transcription service. The extension may consume additional system resources while running, especially when streaming audio.
 
-## Disclaimer
-
-
-### License
+## License
 This extension is provided as-is, without any warranty or guarantee of its performance or suitability for any particular purpose. The developers of this extension shall not be held responsible for any damages or losses incurred while using this extension.
 This extension uses LAME MP3 encoder, licensed LGPL.
 Everything else is under the MIT License.
 
-### Future Work
-
-- [ ] Ability to cut parts of the audio off before saving
-- [ ] Ability to pause and resume captures
