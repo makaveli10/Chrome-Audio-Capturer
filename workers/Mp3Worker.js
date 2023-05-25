@@ -7,7 +7,6 @@ let NUM_CH = 2, // constant
     encoder = undefined,
     recBuffers = undefined,
     socket = undefined,
-    doASR = undefined,
     bufferCount = 0;
 
 function error(message) {
@@ -29,19 +28,16 @@ function setOptions(opt) {
     options = opt;
 }
 
-function start(bufferSize, asr) {
+function start(bufferSize) {
   maxBuffers = Math.ceil(options.timeLimit * sampleRate / bufferSize);
-  doASR = asr;
-  if (doASR) {
-    // TODO: get server address from user
-    socket = new WebSocket("ws://localhost:9090/");
-    socket.onopen = function(e) { 
-      socket.send("handshake");
-    };
-    socket.onmessage = (event) => {
-      console.log(event.data);
-    };
-  }
+  // TODO: get server address from user
+  socket = new WebSocket("ws://localhost:9090/");
+  socket.onopen = function(e) { 
+    socket.send("handshake");
+  };
+  socket.onmessage = (event) => {
+    console.log(event.data);
+  };
 
   if (options.encodeAfterRecord)
     recBuffers = [];
@@ -56,9 +52,8 @@ function record(buffer) {
     else 
       recBuffers.push(buffer);
     
-    // send buffer to server if asr is enabled
-    if (doASR)
-      socket.send(buffer[0]);
+    // send buffer to server
+    socket.send(buffer[0]);
   }
   else
     self.postMessage({ command: "timeout" });
@@ -101,7 +96,7 @@ self.onmessage = function(event) {
   switch (data.command) {
     case "init":    init(data);                 break;
     case "options": setOptions(data.options);   break;
-    case "start":   start(data.bufferSize, data.asr);     break;
+    case "start":   start(data.bufferSize);     break;
     case "record":  record(data.buffer);        break;
     case "finish":  finish();                   break;
     case "cancel":  cleanup();
