@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const quality = document.getElementById("quality");
   const qualityLi = document.getElementById("qualityLi");
   const limitRemoved = document.getElementById("removeLimit");
+  const doVad = document.getElementById("doVad");
   let currentFormat;
   //initial settings
   chrome.storage.sync.get({
@@ -15,13 +16,15 @@ document.addEventListener('DOMContentLoaded', () => {
     maxTime: 1200000,
     format: "mp3",
     quality: 192,
-    limitRemoved: false
+    limitRemoved: false,
+    doVad: false,
   }, (options) => {
     mute.checked = options.muteTab;
     limitRemoved.checked = options.limitRemoved;
     maxTime.disabled = options.limitRemoved;
     maxTime.value = options.maxTime/60000;
     currentFormat = options.format;
+    doVad.checked = options.doVad;
     if (options.format === "mp3") {
       mp3Select.checked = true;
       qualityLi.style.display = "block";
@@ -38,6 +41,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   mute.onchange = () => {
+    status.innerHTML = "";
+  }
+
+  doVad.onchange = () => {
     status.innerHTML = "";
   }
 
@@ -84,7 +91,8 @@ document.addEventListener('DOMContentLoaded', () => {
       maxTime: maxTime.value*60000,
       format: currentFormat,
       quality: quality.value,
-      limitRemoved: limitRemoved.checked
+      limitRemoved: limitRemoved.checked,
+      doVad: doVad.checked,
     });
     status.innerHTML = "Settings saved!"
   }
