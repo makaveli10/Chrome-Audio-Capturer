@@ -26,8 +26,7 @@ Several options are able to be changed in the extension:
 - 'Maximum capture time' changes the amount of time the extension will capture audio for before timing out, and has a limit to prevent exceeding Chrome's memory limit.
 - 'Output file format' allows users to choose whether the resulting file will be encoded into .wav or .mp3
 - 'MP3 Quality' is only applicable for .mp3 encodings, and will change the bitrate of the encode. (Low: 96 kbps, Medium: 192 kbps, High: 320 kbps)
-- 'Enable Automatic Speech Recognition' allows users to send audio to a server hosting a model that consumes the audio and sends the transcriptions corresponding to it.
-- 'Enable Voice Activity detection' allows users to run a voice activity detection model before sending audio to a server hosting the OpenAI-whisper model for transcriptions. It is only applicable if you enable Automatic Speech Recognition.
+- 'Enable Voice Activity detection' allows users to run a voice activity detection model before sending audio to a server hosting the OpenAI-whisper model for transcriptions. 
 
 
 ## Implementation Details
